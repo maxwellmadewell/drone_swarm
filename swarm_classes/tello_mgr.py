@@ -5,11 +5,10 @@ Created on Wed Jul 29 08:06:32 2020
 @author: mxmco
 """
 
-
 import socket
-from stats import Stats
 import time
 import threading
+from datetime import datetime
 from collections import defaultdict
 
 class Tello(object):
@@ -44,9 +43,15 @@ class TelloMgr(object):
 
     def setup_cmd_drones(self):
         "iterates through tellos and sends initial 'command' cmd"
+        self.tello_list.append(Tello("192.168.0.101", self))
+        self.tello_list.append(Tello("192.168.0.102", self))
+        print("tello obj list setup-cmd-drones")
+        print(self.tello_list)
         for ip in self.tello_ip_list:
             cmd_id = len(self.log[ip])
             self.log[ip].append(Stats('command', cmd_id))
+            print("setup cmd drones (find avail)")
+            print(self.log)
             #StateSnapshot
             #{'192.168.0.101': [{'cmd': 'command', 'id': 0}], '192.168.0.100': [{'cmd': 'command', 'id': 0}]})
             try:
@@ -79,7 +84,6 @@ class TelloMgr(object):
             if diff > self.MAX_TIME_OUT:
                 print(f'Error: Timeout Exceeded:  Command: {command}  IP:{ip}')
                 return
-        print("Umm - you should never get here")
     
     def _receive_thread(self):
         while True:
@@ -117,6 +121,85 @@ class TelloMgr(object):
         return self.log
 
     def get_last_logs(self):
+        print("mgr - get last log")
+        print(self.log.values())
         return [log[-1] for log in self.log.values()]
 
+class Stats(object):
+    """
+    Statistics
+    """
 
+    def __init__(self, command, id):
+        """
+        Ctor.
+        :param command: Command.
+        :param id: ID.
+        """
+        self.command = command
+        self.response = None
+        self.id = id
+
+        self.start_time = datetime.now()
+        self.end_time = None
+        self.duration = None
+        self.drone_ip = None
+
+    def add_response(self, response, ip):
+        """
+        Adds a response.
+        :param response: Response.
+        :param ip: IP address.
+        :return: None.
+        """
+        if self.response == None:
+            self.response = response
+            self.end_time = datetime.now()
+            self.duration = self.get_duration()
+            self.drone_ip = ip
+
+    def get_duration(self):
+        """
+        Gets the duration.
+        :return: Duration (seconds).
+        """
+        diff = self.end_time - self.start_time
+        return diff.total_seconds()
+
+    def print_stats(self):
+        """
+        Prints statistics.
+        :return: None.
+        """
+        print(self.get_stats())
+
+    def got_response(self):
+        """
+        Checks if response was received.
+        :return: A boolean indicating if response was received.
+        """
+        return False if self.response is None else True
+
+    def get_stats(self):
+        """
+        Gets the statistics.
+        :return: Statistics.
+        """
+        return {
+            'id': self.id,
+            'command': self.command,
+            'response': self.response,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'duration': self.duration
+        }
+
+    def get_stats_delimited(self):
+        stats = self.get_stats()
+        keys = ['id', 'command', 'response', 'start_time', 'end_time', 'duration']
+        vals = [f'{k}={stats[k]}' for k in keys]
+        vals = ', '.join(vals)
+        return vals
+
+    def __repr__(self):
+        return self.get_stats_delimited()

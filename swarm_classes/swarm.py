@@ -1,5 +1,3 @@
-    
-import sys
 import time
 from tello_mgr import *
 import queue
@@ -8,12 +6,10 @@ import os
 from contextlib import suppress
 
 class SwarmUtil(object):
-    """
-    Creates list of thread pools for each drone, checks thread queue
-    """
+    #Creates list of thread pools for each drone, checks thread queue
 
     @staticmethod
-    #Creates list of thread pools for each drone
+    #Creates queue for thread pools for each drone (num)
     def create_execution_pools(num):
         return [queue.Queue() for x in range(num)]
 
@@ -24,24 +20,35 @@ class SwarmUtil(object):
             while queue.empty():
                 pass
             command = queue.get()
+            print("drone_handler - command to send")
+            print(command)
             tello.send_command(command)
 
     @staticmethod
     def all_queue_empty(pools):
+        
+        print("Checking if each queue is empty")
         for queue in pools:
+            print(queue)
             if not queue.empty():
+                print("queue not empty")
                 return False
+        print("queue is empty")
         return True
 
     @staticmethod
     def all_got_response(manager):
+        print("checking if all commands recvd resp")
         for log in manager.get_last_logs():
             if not log.got_response():
+                print("1+ cmd not responded to")
                 return False
+        print("all cmds recvd resp")
         return True
 
     @staticmethod
     def create_dir(dpath):
+        #creates saved log directory
         if not os.path.exists(dpath):
             with suppress(Exception):
                 os.makedirs(dpath)
@@ -68,12 +75,12 @@ class SwarmUtil(object):
 
     @staticmethod
     def check_timeout(start_time, end_time, timeout):
+        #check if duration of cmd is longer than max timeout
         diff = end_time - start_time
         time.sleep(0.1)
         return diff > timeout
 
 class Swarm(object):
-    """  """
     def __init__(self, fpath):
         self.fpath = fpath
         self.commands = self._get_commands(fpath)
@@ -97,12 +104,9 @@ class Swarm(object):
         }
 
     def start(self):
-        """
-        Main loop. Starts the swarm.
-
-        :return: None.
-        """
+        #main start func
         def is_invalid_command(command):
+            #make a little more robust to handle bad txt files
             if command is None:
                 return True
             c = command.strip()
@@ -121,7 +125,6 @@ class Swarm(object):
                 if is_invalid_command(command):
                     continue
                 print(command)
-
                 command = command.rstrip()
 
                 if '//' in command:
@@ -151,39 +154,29 @@ class Swarm(object):
             SwarmUtil.save_log(self.manager)
 
     def _wait_for_all(self):
-        """
-        Waits for all queues to be empty and for all responses
-        to be received.
-
-        :return: None.
-        """
+        print("waiting on all queue empty ")
+        print(f'Length of queue {len(self.pools)}')
         while not SwarmUtil.all_queue_empty(self.pools):
             time.sleep(0.5)
         
         time.sleep(1)
-
+        
+        print("queue empty - wait for all got response")
         while not SwarmUtil.all_got_response(self.manager):
             time.sleep(0.5)
-
+        print("all got response")
     def _get_commands(self, fpath):
-        """
-        Gets the commands.
-
-        :param fpath: Command file path.
-        :return: List of commands.
-        """
         with open(fpath, 'r') as f:
             return f.readlines()
 
     def _handle_comments(self, command):
-        print(f'[COMMENT] {command}')
+        print(f'File has comment: {command}')
 
     def _handle_scan(self, command):
         #number of drones
         n_tellos = int(command.partition('scan')[2])
         print('number of tellos')
         print(n_tellos)
-
         self.manager.setup_cmd_drones
         self.tellos = self.manager.get_tello_list()
         print('self.tellos')
@@ -197,15 +190,9 @@ class Swarm(object):
             t.daemon = True
             t.start()
 
-            print(f'[SCAN] IP = {tello.tello_ip}, ID = {x}')
+            print(f'Scanning Drone IPs = {tello.tello_ip}, ID = {x}')
 
     def _handle_gte(self, command):
-        """
-        Handles gte or >.
-
-        :param command: Command.
-        :return: None.
-        """
         id_list = []
         id = command.partition('>')[0]
 
@@ -214,7 +201,7 @@ class Swarm(object):
         else:
             id_list.append(int(id)-1) 
         
-        action = str(command.partition('>')[2])
+        cmd = str(command.partition('>')[2])
 
         for tello_id in id_list:
             sn = self.id2sn[tello_id]
@@ -222,56 +209,42 @@ class Swarm(object):
             id = self.ip2id[ip]
 
             self.pools[id].put(action)
-            print(f'[ACTION] SN = {sn}, IP = {ip}, ID = {id}, ACTION = {action}')
+            print(f'Drone Cmd: IP = {ip}, ID = {id}, CMD = {cmd}')
 
     def _handle_battery_check(self, command):
-        """
-        Handles battery check. Raises exception if any drone has
-        battery life lower than specified threshold in the command.
-
-        :param command: Command.
-        :return: None.
-        """
         threshold = int(command.partition('battery_check')[2])
         for queue in self.pools:
             queue.put('battery?')
+            print(queue.get())
 
+        print("batt check")
+        print(self.tellos)
         self._wait_for_all()
-
         is_low = False
 
         for log in self.manager.get_last_logs():
+            print("BC - print log")
+            print(log.response)
+            print(log)
             battery = int(log.response)
             drone_ip = log.drone_ip
 
-            print(f'[BATTERY] IP = {drone_ip}, LIFE = {battery}%')
+            print(f'Battery Status IP = {drone_ip}, batt% = {battery}%')
 
             if battery < threshold:
                 is_low = True
         
         if is_low:
-            raise Exception('Battery check failed!')
+            raise Exception('Drone has low battery')
         else:
-            print('[BATTERY] Passed battery check')
+            print('Drone Batteries exceed threshold')
 
     def _handle_delay(self, command):
-        """
-        Handles delay.
-
-        :param command: Command.
-        :return: None.
-        """
         delay_time = float(command.partition('delay')[2])
-        print (f'[DELAY] Start Delay for {delay_time} second')
+        print (f'Start Delay for {delay_time} second')
         time.sleep(delay_time)  
 
     def _handle_correct_ip(self, command):
-        """
-        Handles correction of IPs.
-
-        :param command: Command.
-        :return: None.
-        """
         for queue in self.pools:
             queue.put('sn?') 
 
@@ -282,15 +255,10 @@ class Swarm(object):
             tello_ip = str(log.drone_ip)
             self.sn2ip[sn] = tello_ip
 
-            print(f'[CORRECT_IP] SN = {sn}, IP = {tello_ip}')
+            print(f'Drone: SN = {sn}, IP = {tello_ip}')
 
     def _handle_eq(self, command):
-        """
-        Handles assignments of IDs to serial numbers.
-
-        :param command: Command.
-        :return: None.
-        """
+        #ip to Sn mapping
         id = int(command.partition('=')[0])
         sn = command.partition('=')[2]
         ip = self.sn2ip[sn]
@@ -300,12 +268,6 @@ class Swarm(object):
         print(f'[IP_SN_ID] IP = {ip}, SN = {sn}, ID = {id}')
 
     def _handle_sync(self, command):
-        """
-        Handles synchronization.
-
-        :param command: Command.
-        :return: None.
-        """
         timeout = float(command.partition('sync')[2])
         print(f'[SYNC] Sync for {timeout} seconds')
 
@@ -331,22 +293,11 @@ class Swarm(object):
             print('[SYNC] Failed to sync; timeout exceeded')
 
     def _handle_keyboard_interrupt(self):
-        """
-        Handles keyboard interrupt.
-
-        :param command: Command.
-        :return: None.
-        """
         print('[QUIT_ALL], KeyboardInterrupt. Sending land to all drones')
         tello_ips = self.manager.tello_ip_list
         for ip in tello_ips:
             self.manager.send_command('land', ip)
 
     def _handle_exception(self, e):
-        """
-        Handles exception (not really; just logging to console).
 
-        :param command: Command.
-        :return: None.
-        """
         print(f'[EXCEPTION], {e}')
