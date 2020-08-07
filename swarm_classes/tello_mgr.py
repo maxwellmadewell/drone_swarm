@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Jul 29 08:06:32 2020
-
-@author: mxmco
-"""
+#Max Coursey, Craig Topham Vanderbilt Networking
+#Sources used
+#https://tellopilots.com/wiki/protocol/
+#https://github.com/hanyazou/TelloPy
+#https://pypi.org/project/easytello/
+#https://tello.oneoffcoder.com/
+#https://github.com/dji-sdk/Tello-Python
 
 import socket
 import time
@@ -115,7 +116,7 @@ class TelloMgr(object):
                          
             except socket.error as exc:
                 # swallow exception
-                print("[Exception_Error]Caught exception socket.error : %s\n" % exc)
+                print("socket.error : %s\n" % exc)
                 pass
             
     def get_log(self):
@@ -127,16 +128,8 @@ class TelloMgr(object):
         return [log[-1] for log in self.log.values()]
 
 class Stats(object):
-    """
-    Statistics
-    """
 
     def __init__(self, command, id):
-        """
-        Ctor.
-        :param command: Command.
-        :param id: ID.
-        """
         self.command = command
         self.response = None
         self.id = id
@@ -147,12 +140,6 @@ class Stats(object):
         self.drone_ip = None
 
     def add_response(self, response, ip):
-        """
-        Adds a response.
-        :param response: Response.
-        :param ip: IP address.
-        :return: None.
-        """
         if self.response == None:
             self.response = response
             self.end_time = datetime.now()
@@ -160,32 +147,16 @@ class Stats(object):
             self.drone_ip = ip
 
     def get_duration(self):
-        """
-        Gets the duration.
-        :return: Duration (seconds).
-        """
         diff = self.end_time - self.start_time
         return diff.total_seconds()
 
     def print_stats(self):
-        """
-        Prints statistics.
-        :return: None.
-        """
         print(self.get_stats())
 
     def got_response(self):
-        """
-        Checks if response was received.
-        :return: A boolean indicating if response was received.
-        """
         return False if self.response is None else True
 
     def get_stats(self):
-        """
-        Gets the statistics.
-        :return: Statistics.
-        """
         return {
             'id': self.id,
             'command': self.command,

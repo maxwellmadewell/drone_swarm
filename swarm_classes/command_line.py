@@ -1,3 +1,12 @@
+#Max Coursey, Craig Topham Vanderbilt Networking
+#Sources used
+#https://tellopilots.com/wiki/protocol/
+#https://github.com/hanyazou/TelloPy
+#https://pypi.org/project/easytello/
+#https://tello.oneoffcoder.com/
+#https://github.com/dji-sdk/Tello-Python
+
+
 import sys
 import argparse
 from swarm import *
