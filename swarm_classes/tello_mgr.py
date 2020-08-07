@@ -27,15 +27,16 @@ class TelloMgr(object):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind((self.local_ip, self.local_port))
         # thread for receiving cmd ack
-        # TODO - will this work for multiple tellos?
         self.receive_thread = threading.Thread(target=self._receive_thread)
         self.receive_thread.daemon = True
         self.receive_thread.start()
         #Setup list of drone IP addresses 
+        #Need to manually match up with swarm.py file
         self.tello_ip_list = ['192.168.0.101', '192.168.0.102']
         #list of tello class objects after receiving first OK response from command cmd
         self.tello_list = []
         self.log = defaultdict(list)
+        #Drone times outs if no cmd received after 15 sec.
         self.MAX_TIME_OUT = 10.0
         self.last_response_idx = {}
         self.str_cmd_idx = {}
