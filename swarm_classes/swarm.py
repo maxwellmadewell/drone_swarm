@@ -67,7 +67,7 @@ class SwarmProcessing(object):
         dpath = './log'
         SwarmProcessing.create_dir(dpath)
 
-        start_time = str("DS",time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(time.time())))
+        start_time = str(time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(time.time())))
         fpath = f'{dpath}/{start_time}.txt'
 
         with open(fpath, 'w') as out:
@@ -106,6 +106,11 @@ class Swarm(object):
 
     def start(self):
         #main start func
+        #scan takes number of drones in swarm - make sure you have manually update both swarm/tello files with IPs
+        #battery? determines minimum threshold for floght sequence to start
+        #Commands are in the form *=command (e.g. *=takeoff: tells all drones to take off, 1=land: tells only drone with id 1 to land
+        #make sure txt file is updates per above
+        
         def is_invalid_command(command):
             #make a little more robust to handle bad txt files
             if command is None:
@@ -127,8 +132,7 @@ class Swarm(object):
                     continue
                 print(command)
                 command = command.rstrip()
-
-                elif 'scan' in command:
+                if 'scan' in command:
                     self._handle_scan(command)
                 elif 'battery?' in command:
                     self._handle_battery_check(command)
@@ -167,7 +171,7 @@ class Swarm(object):
         print(n_tellos)
         self.manager.setup_cmd_drones
         self.tellos = self.manager.get_tello_list()
-        self.pools = SwarmProcessing.create_execution_pools(n_tellos)
+        self.pools = SwarmProcessing.create_threadpool_queue(n_tellos)
 
         for x, (tello, pool) in enumerate(zip(self.tellos, self.pools)):
             self.ip_getid[tello.tello_ip] = x
@@ -206,7 +210,7 @@ class Swarm(object):
 
     def _handle_cmd(self, command):
         id_list = []
-        id = command.partition('>')[0]
+        id = command.partition('=')[0]
 
         if id == '*':
             id_list = [t for t in range(len(self.tellos))]

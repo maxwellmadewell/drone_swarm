@@ -1,5 +1,5 @@
 scan 2
-battery_check 20
-*>takeoff
-*>rc 0 0 20 0
-*>land
+battery? 20
+*=takeoff
+*=rc 0 0 20 0
+*=land
